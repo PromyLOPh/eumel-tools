@@ -22,6 +22,9 @@ def linearBlocks (fd):
     elif size in (368640, 737280):
         # 360k or 720k
         blocksPerChunk = 9
+    elif size == 819200:
+        # 800k
+        blocksPerChunk = 10
     else:
         logging.warning ('Cannot determine blocks per chunk from filesize')
     chunkSize = blockSize*blocksPerChunk
