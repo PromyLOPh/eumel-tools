@@ -9,7 +9,7 @@ datastructure here. See EUMEL packet “file handling”.
 
 import struct, copy
 from collections import namedtuple
-from eumel import Dataspace, DataspaceTypeMismatch
+from eumel import Dataspace, DataspaceTypeMismatch, HeapReferenceUnresolved
 
 Segment = namedtuple ('Segment', ['succ', 'pred', 'end'])
 Sequence = namedtuple ('Sequence', ['index', 'segmentbegin', 'segmentend', 'lineno', 'lines'])
@@ -127,7 +127,11 @@ class FileDataspace (Dataspace):
             visited.add (chain.pos)
 
             r = chain.atom
-            lbytes = bytes (r.line)
+            try:
+                lbytes = bytes (r.line)
+            except HeapReferenceUnresolved as e:
+                lbytes = b''
+                logging.warning ('heap reference unresolved at line {}: {}'.format (len (lines)+1, e))
             lbytesStripped = lbytes.rstrip (b'\xff')
             if len (lbytes) != len (lbytesStripped):
                 logging.warning ('Line {} length incorrect. Is {}, should be {}, fixing. {}'.format (chain.lineno, r.line.length, len (lbytesStripped), lbytes))
