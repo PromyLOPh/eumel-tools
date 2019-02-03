@@ -13,7 +13,7 @@ while read -r F; do
 	pushd "$destdir" || continue
 	for G in ./*; do
 		echo "Converting $G to ${G}.txt"
-		$root/convertFileDs.py "$G" > "${G}.txt" && touch -r "${G}" "${G}.txt" || rm "${G}.txt"
+		$root/convertFileDs.py "$G" > "${G}.txt" && touch -r "${G}" "${G}.txt" && rm "${G}" || rm "${G}.txt"
 	done
 	popd
 	rm "$linear"
