@@ -2,13 +2,13 @@
 " Copy to ~/.vim/syntax/ and enable with :set filetype=elan
 " Language: ELAN
 " Maintainer: Lars-Dominik Braun <lars+eumel@6xq.net>
-" Latest Revision: 2017-02-26
+" Latest Revision: 2019-02-07
 
 if exists("b:current_syntax")
   finish
 endif
 
-syn keyword elanStatement PROC ENDPROC OP PACKET LEAVE WITH END LET DEFINES
+syn keyword elanStatement PROC ENDPROC OP PACKET ENDPACKET LEAVE WITH END LET DEFINES
 syn keyword elanConditional IF ELSE FI THEN SELECT OF ELIF
 syn keyword elanRepeat FOR FROM UPTO REP PER WHILE UNTIL
 syn keyword elanBoolean TRUE FALSE
