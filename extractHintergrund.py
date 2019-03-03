@@ -5,7 +5,7 @@ Extract EUMEL Hintergrund floppy disk image. Known to work only with version
 1.8 images.
 """
 
-import os
+import os, logging
 from enum import IntEnum, unique
 from operator import attrgetter
 
@@ -128,9 +128,11 @@ urladerlink = Struct (
 
 def copyblock (block, infd, outfd):
     if block == 0xffffff:
+        logging.debug (f'copying empty block')
         written = outfd.write (b'\xff'*pagesize)
         assert written == pagesize
     else:
+        logging.debug (f'copying block {block}@{block*pagesize:x}h')
         infd.seek (block*pagesize, os.SEEK_SET)
         buf = infd.read (pagesize)
         assert len (buf) == pagesize
@@ -139,23 +141,35 @@ def copyblock (block, infd, outfd):
 
 def copyBlockTable (block, infd, outfd, skip=0):
     if block != 0xffffff:
+        logging.debug (f'copying block table {block}@{block*pagesize:x}h, skipping {skip}')
         fd.seek (block*pagesize, os.SEEK_SET)
         for i, refl2 in enumerate (blockTable.parse_stream (infd)):
             if i >= skip:
                 copyblock (refl2.value, fd, outfd)
     else:
+        logging.debug (f'copying empty block table')
         entries = (blockTable.sizeof()//blockref.sizeof())-skip
         outfd.write (b'\xff'*(pagesize*entries))
 
 if __name__ == '__main__':
-    import sys
-    from struct import Struct, unpack
+    import argparse
 
-    with open (sys.argv[1], 'rb') as fd:
+    parser = argparse.ArgumentParser(description='Extract EUMEL Hintergrund.')
+    parser.add_argument('-v', '--verbose', action='store_true', help='Verbose debugging output')
+    parser.add_argument('input', metavar='FILE', type=argparse.FileType('rb'), help='Input file')
+
+    args = parser.parse_args()
+
+    if args.verbose:
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+
+    with args.input as fd:
         # ident
-        print (hgIdent.parse_stream (fd))
+        logging.info (hgIdent.parse_stream (fd))
         fd.seek (0x1400, os.SEEK_SET)
-        print (urladerlink.parse_stream (fd))
+        logging.info (urladerlink.parse_stream (fd))
 
         fd.seek (pagesize)
         a = anchor.parse_stream (fd)
@@ -168,7 +182,7 @@ if __name__ == '__main__':
         for taskid, taskref in enumerate (taskRoot):
             if taskref.value == 0xffffff:
                 continue
-            print (f'task {taskid} is at {taskref.value} 0x{taskref.value*pagesize:x}')
+            logging.info (f'task {taskid} is at {taskref.value} 0x{taskref.value*pagesize:x}')
 
             fd.seek (taskref.value*pagesize)
             dataspaces = blockTable.parse_stream (fd)
@@ -176,23 +190,23 @@ if __name__ == '__main__':
             for dsidhigh, dsref in enumerate (dataspaces):
                 if dsref.value == 0xffffff:
                     continue
-                print (f'\ttaskid {taskid} dsid {dsidhigh<<4} is at {dsref.value} 0x{dsref.value*pagesize:x}')
+                logging.info (f'\ttaskid {taskid} dsid {dsidhigh<<4} is at {dsref.value} 0x{dsref.value*pagesize:x}')
 
                 # pcb and drinfo (level 3)
                 fd.seek (dsref.value*pagesize)
                 drinfoStart = 0
                 if dsidhigh == 0:
                     p = pcb.parse_stream (fd)
-                    print (f'\t+pcb taskid {p.taskid} version {p.version} icount {p.icount:x} arith {p.flags.arith} disablestop {p.flags.disablestop} iserror {p.flags.iserror} pbase {p.pbase:x} module {p.module}')
+                    logging.info (f'\t+pcb taskid {p.taskid} version {p.version} icount {p.icount:x} arith {p.flags.arith} disablestop {p.flags.disablestop} iserror {p.flags.iserror} pbase {p.pbase:x} module {p.module}')
                     drinfoStart = 4
-                print (f'\t\tdrinfo starting at {fd.tell():x}')
+                logging.info (f'\t\tdrinfo starting at {fd.tell():x}')
                 for dsidlow in range (drinfoStart, 16):
                     dsid = dsidlow | dsidhigh << 4
                     d = drinfo.parse_stream (fd)
                     if d.count.value != 0xffffff and d.count.value != 0:
                         # pbt (page block table) 1/2 contain block refs for pages 0…127 and 128…256
                         # pst (page segment table) 1/2 contain block refs to page block tables for pages > 256
-                        print (f'\t\tdrinfo {dsid} #{d.count.value} @ {[x.value for x in d.blocks]}, ind {[x.value for x in d.blockTables]}, ind2 {[x.value for x in d.segmentTables]}')
+                        logging.info (f'\t\tdrinfo {dsid} #{d.count.value} @ {[x.value for x in d.blocks]}, ind {[x.value for x in d.blockTables]}, ind2 {[x.value for x in d.segmentTables]}')
 
                         pos = fd.tell ()
                         with open (f'{taskid:04d}_{dsid:04d}.ds', 'wb') as outfd:
