@@ -44,6 +44,7 @@ anchor = Struct(
     Const(b"\xff"*4),
     ) * "System anchor block"
 
+assert pagesize//blockref.sizeof() == 128
 blockTable = Array(pagesize//blockref.sizeof(), blockref)
 
 # XXX: skip const
@@ -212,6 +213,10 @@ if __name__ == '__main__':
                         with open (f'{taskid:04d}_{dsid:04d}.ds', 'wb') as outfd:
                             os.ftruncate (outfd.fileno(), 0)
 
+                            # the first page of a dataspace is used by the OS
+                            # and not stored to the Hintergrund
+                            outfd.seek (pagesize)
+
                             # get the first three pages
                             for ref in d.blocks:
                                 copyblock (ref.value, fd, outfd)
@@ -219,7 +224,7 @@ if __name__ == '__main__':
                             # indirect block refs (level 4a)
                             assert len (d.blockTables) == 2
                             # first four entries of first table are empty and must not be written!
-                            copyBlockTable (d.blockTables[0].value, fd, outfd, 3)
+                            copyBlockTable (d.blockTables[0].value, fd, outfd, 4)
                             copyBlockTable (d.blockTables[1].value, fd, outfd)
 
                             # segment tables (level 4b)

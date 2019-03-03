@@ -9,7 +9,7 @@ datastructure here. See EUMEL packet “file handling”.
 
 import struct, copy
 from collections import namedtuple
-from eumel import Dataspace, DataspaceTypeMismatch, HeapReferenceUnresolved
+from eumel import Dataspace, DataspaceTypeMismatch, HeapReferenceUnresolved, pagesize
 
 Segment = namedtuple ('Segment', ['succ', 'pred', 'end'])
 Sequence = namedtuple ('Sequence', ['index', 'segmentbegin', 'segmentend', 'lineno', 'lines'])
@@ -77,12 +77,13 @@ class FileDataspace (Dataspace):
         Dataspace.__init__ (self, fd)
 
         # header of the BOUND LIST (aka TYPE FILE)
+        start = fd.tell ()
         self.used = self.parseSequence ()
         self.parseInt (2)
         self.parseSequence ()
         self.parseSequence ()
         self.parseInt (7)
-        assert self.fd.tell () == 0x38
+        assert self.fd.tell ()-start == 0x30
 
         rows = self.parseRows ()
 
@@ -150,6 +151,7 @@ if __name__ == '__main__':
     
     parser = argparse.ArgumentParser(description='Convert EUMEL FILE dataspace into plain text file.')
     parser.add_argument ('-v', '--verbose', help='Enable debugging messages', action='store_true')
+    parser.add_argument ('-s', '--skip', metavar='PAGES', type=int, default=0, help='Skip pages at the beginning of the file')
     parser.add_argument ('file', help='Input file')
     args = parser.parse_args ()
 
@@ -160,6 +162,7 @@ if __name__ == '__main__':
 
     with open (args.file, 'rb') as fd:
         try:
+            fd.seek (args.skip*pagesize)
             ds = FileDataspace (fd)
             linecount = len (ds.text.splitlines ())
             if linecount != ds.used.lines:
